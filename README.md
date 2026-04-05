@@ -16,7 +16,7 @@ The project’s output is intended to be an **interactive website/dashboard** (n
 
 ## Core principles and caveats
 
-- **No simplistic “movies cause crime” narrative**: the goal is to measure *associations* and report effect sizes + uncertainty.
+- **No simplistic “movies cause crime” narrative**: the goal is to measure _associations_ and report effect sizes + uncertainty.
 - **Confounds are real**: festivals, elections, weather, unemployment, policing intensity, and seasonality can move crime rates.
 - **Reporting bias**: higher FIR counts can reflect improved reporting, not necessarily more crime.
 - **Temporal resolution is the hard part**: NCRB is often annual; meaningful “4-week windows” require monthly/weekly city/state sources where available.
@@ -25,19 +25,23 @@ The project’s output is intended to be an **interactive website/dashboard** (n
 ## Data sources (planned)
 
 ### Film data (metadata + performance)
+
 - **TMDb**: titles, release dates, cast/crew, genres, synopses.
 - **IMDb datasets**: additional metadata and cross-referencing via IMDb IDs.
 - **Box office sources** (may require scraping): domestic weekly collections and other performance proxies.
 
 ### Film content annotations (structured “what the film depicts”)
+
 Most of the important variables (e.g., “violence glorified?”, “crime rewarded?”, protagonist archetype) are not available as clean datasets.
 
 Planned approach:
+
 - Use **LLM-assisted structured extraction** from plot summaries + reviews using **DSPy**.
 - Create a **manually annotated gold set** for validation and to calibrate the extraction pipeline.
 - Store annotations with **confidence scores** and provenance.
 
 ### Crime data
+
 - **NCRB / data.gov.in**: official crime categories and counts (often annual).
 - Where possible, incorporate **higher-frequency sources** (metro/city monthly reporting, state portals, etc.) to support short windows.
 
@@ -78,18 +82,12 @@ The analysis will emphasize methods that are common in policy/econometrics rathe
 
 ## Repo status
 
-This repository is currently in the **planning stage**. The detailed working plan lives in `cinema-crime-india-action-plan.md` (ignored by default via `.gitignore`).
-
-As implementation starts, expect folders like:
-- `data/` (raw/processed pointers, not necessarily committed)
-- `scripts/` or `pipeline/` (ingestion + cleaning)
-- `analysis/` (notebooks, models, results tables)
-- `web/` (Next.js app)
+This repository is currently in the **planning stage**.
 
 ## Ethics & communication
 
 Because this topic is easy to sensationalize, the project will prioritize:
+
 - Clear language about what the study can and cannot claim
 - Open methodology and reproducible analysis where feasible
 - Care around demographic inferences (religion/caste/class fields require strong justification and careful framing)
-
