@@ -1,0 +1,286 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector"), uuid_ossp(map: "uuid-ossp")]
+}
+
+// ---------------------------------------------------------------------------
+// Reference: Indian states & union territories
+// ---------------------------------------------------------------------------
+model State {
+  code       String   @id @db.VarChar(5)
+  name       String   @unique
+  region     String?  @db.VarChar(50)
+  population Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  crimeRecords    CrimeRecord[]
+  analysisWindows AnalysisWindow[]
+}
+
+// ---------------------------------------------------------------------------
+// Core film metadata (TMDb + IMDb + box-office scrapes)
+// ---------------------------------------------------------------------------
+model Film {
+  id               Int      @id @default(autoincrement())
+  tmdbId           Int?     @unique
+  imdbId           String?  @unique @db.VarChar(20)
+  title            String
+  originalTitle    String?
+  releaseDate      DateTime @db.Date
+  year             Int
+  language         String   @db.VarChar(10)
+  originalLanguage String?  @db.VarChar(10)
+  synopsis         String?  @db.Text
+  genres           Json?
+  keywords         Json?
+
+  revenueDomesticCr  Decimal? @db.Decimal(12, 2)
+  revenueWorldwideCr Decimal? @db.Decimal(12, 2)
+  budgetCr           Decimal? @db.Decimal(12, 2)
+  openingWeekendCr   Decimal? @db.Decimal(12, 2)
+
+  popularity  Float?
+  voteAverage Float?
+  voteCount   Int?
+  runtime     Int?
+
+  screensCount   Int?    
+  releaseWeek    Int?    
+  sequel         Boolean @default(false)
+  starPowerIndex Float?
+
+  certification       String? @db.VarChar(10)
+  productionCompanies Json?
+  cast                Json?
+  crew                Json?
+
+  posterPath   String?
+  backdropPath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  annotation      FilmAnnotation?
+  embeddings      FilmEmbedding[]
+  analysisWindows AnalysisWindow[]
+  boxOfficeWeeks  BoxOfficeWeek[]
+
+  @@index([year])
+  @@index([language])
+  @@index([releaseDate])
+}
+
+// ---------------------------------------------------------------------------
+// Weekly box-office collections (tracks *when* a film was being watched)
+// ---------------------------------------------------------------------------
+model BoxOfficeWeek {
+  id           Int      @id @default(autoincrement())
+  filmId       Int
+  weekNumber   Int
+  collectionCr Decimal  @db.Decimal(12, 2)
+  cumulativeCr Decimal? @db.Decimal(12, 2)
+  weekStart    DateTime @db.Date
+  weekEnd      DateTime @db.Date
+  source       String?  @db.VarChar(100)
+  createdAt    DateTime @default(now())
+
+  film Film @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([filmId, weekNumber])
+}
+
+// ---------------------------------------------------------------------------
+// LLM-generated content analysis (30+ columns per film)
+// ---------------------------------------------------------------------------
+model FilmAnnotation {
+  id     Int @id @default(autoincrement())
+  filmId Int @unique
+
+  // --- Character ---
+  protagonistName          String?
+  protagonistGender        String?  @db.VarChar(20)
+  protagonistReligion      String?  @db.VarChar(50)
+  protagonistCaste         String?  @db.VarChar(50)
+  protagonistProfession    String?
+  protagonistEconomicClass String?  @db.VarChar(30)
+  protagonistAge           String?  @db.VarChar(20)
+
+  // --- Moral Framing ---
+  protagonistBreaksLaw Boolean?
+  violenceGlorified    Boolean?
+  crimeAsNecessity     Boolean?
+  revengeNarrative     Boolean?
+  antiAuthorityTheme   Boolean?
+  vigilanteJustice     Boolean?
+
+  // --- Genre / Tone ---
+  genrePrimary      String? @db.VarChar(50)
+  genreSecondary    String? @db.VarChar(50)
+  tone              String? @db.VarChar(30)
+  settingUrbanRural String? @db.VarChar(20)
+  eraDepicted       String? @db.VarChar(30)
+
+  // --- Crime Depiction ---
+  crimesShown        Json?
+  crimeTypePrimary   String?  @db.VarChar(50)
+  crimeRewarded      Boolean?
+  policePortrayedAs  String?  @db.VarChar(30)
+  crimeScreenTimePct Float?
+
+  // --- Social Dynamics ---
+  communalTension            Boolean?
+  classConflict              Boolean?
+  genderDynamics             String?  @db.VarChar(50)
+  romanticViolenceNormalized Boolean?
+  casteDiscrimination        Boolean?
+  ruralUrbanMigration        Boolean?
+
+  // --- Outcome ---
+  protagonistFate     String?  @db.VarChar(30)
+  moralLessonExplicit Boolean?
+  justiceServed       Boolean?
+
+  // --- Provenance ---
+  annotationSource String?   @db.VarChar(30)
+  confidenceScore  Float?
+  isGoldStandard   Boolean   @default(false)
+  reviewedBy       String?
+  annotatedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  film Film @relation(fields: [filmId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// NCRB crime data (state / city / district level)
+// ---------------------------------------------------------------------------
+model CrimeRecord {
+  id                 Int     @id @default(autoincrement())
+  stateCode          String  @db.VarChar(5)
+  city               String? @db.VarChar(100)
+  district           String? @db.VarChar(100)
+  crimeType          String
+  crimeCategory      String? @db.VarChar(50)
+  ipcSection         String? @db.VarChar(30)
+  casesRegistered    Int
+  casesChargesheeted Int?
+  casesConvicted     Int?
+  casesAcquitted     Int?
+  year               Int
+  month              Int?
+  week               Int?
+
+  populationEstimate Int?
+  crimeRatePerLakh   Float?
+
+  source    String?  @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  state State @relation(fields: [stateCode], references: [code])
+
+  @@index([stateCode, year])
+  @@index([crimeType])
+  @@index([year, month])
+}
+
+// ---------------------------------------------------------------------------
+// Statistical analysis: 4-week post-release crime windows
+// ---------------------------------------------------------------------------
+model AnalysisWindow {
+  id          Int      @id @default(autoincrement())
+  filmId      Int
+  stateCode   String   @db.VarChar(5)
+  crimeType   String
+  windowStart DateTime @db.Date
+  windowEnd   DateTime @db.Date
+  windowWeeks Int      @default(4)
+
+  baselineRate Float
+  observedRate Float
+  delta        Float
+  deltaPercent Float?
+  zScore       Float
+  pValue       Float?
+  effectSize   Float?
+  ciLower      Float?
+  ciUpper      Float?
+
+  controlsApplied Json?
+  methodology     String? @db.VarChar(50)
+  isSignificant   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  film  Film  @relation(fields: [filmId], references: [id], onDelete: Cascade)
+  state State @relation(fields: [stateCode], references: [code])
+
+  @@unique([filmId, stateCode, crimeType, windowWeeks])
+  @@index([stateCode])
+  @@index([crimeType])
+}
+
+// ---------------------------------------------------------------------------
+// Vector embeddings for RAG (requires pgvector)
+// ---------------------------------------------------------------------------
+model FilmEmbedding {
+  id        Int    @id @default(autoincrement())
+  filmId    Int
+  chunkText String @db.Text
+  chunkType String @db.VarChar(30)
+  embedding Unsupported("vector(1536)")?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  film Film @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@index([filmId])
+}
+
+// ---------------------------------------------------------------------------
+// Confound / control variables per state-year (for regressions)
+// ---------------------------------------------------------------------------
+model ConfoundData {
+  id        Int    @id @default(autoincrement())
+  stateCode String @db.VarChar(5)
+  year      Int
+  month     Int?
+
+  festivalActive   Boolean?
+  festivalName     String?  @db.VarChar(50)
+  electionPeriod   Boolean?
+  unemploymentRate Float?
+  avgTemperature   Float?
+  rainfallMm       Float?
+  gdpPerCapita     Float?
+
+  createdAt DateTime @default(now())
+
+  @@unique([stateCode, year, month])
+}
+
+// ---------------------------------------------------------------------------
+// Track data ingestion provenance
+// ---------------------------------------------------------------------------
+model DataSource {
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  url           String?
+  dataType      String    @db.VarChar(30)
+  lastFetchedAt DateTime?
+  recordCount   Int?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
